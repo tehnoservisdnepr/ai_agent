@@ -10,7 +10,7 @@ from analyze import get_weather_analysis
 
 # --- НАСТРОЙКИ ---
 # Вставь сюда свой токен от BotFather
-TOKEN = "8744550835:AA..." 
+TOKEN = "8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk" 
 # IP твоей дачи через NetBird
 DOMOTICZ_URL = "http://100.96.33.208:8080/json.htm"
 
@@ -69,20 +69,29 @@ async def cmd_status(message: Message):
 
     response.append("\n" + "—" * 15 + "\n")
 
-    # 2. Данные из analyze.py (Meteofor)
+
+# 2. Данные из analyze.py (Meteofor)
     if weather:
-        kp = weather.get('kp', 0)
-        uv = weather.get('uv', 0)
+        # Превращаем в числа, чтобы избежать ошибки TypeError
+        try:
+            kp = int(weather.get('kp', 0))
+            uv = int(weather.get('uv', 0))
+        except (ValueError, TypeError):
+            kp = 0
+            uv = 0
         
-        # Пояснения к индексам
+        # Теперь сравнение будет работать правильно
         kp_warn = "🔴 БУРЯ!" if kp >= 5 else "🟢 Спокойно"
         uv_warn = "⚠️ Нужна защита" if uv >= 6 else "✅ Безопасно"
         
         response.append(f"🌍 **Внешние индексы (Meteofor):**")
+        response.append(f"🌡 По городу: `{weather.get('temp', 'н/д')}°C`")
         response.append(f"🧲 Магнитный (Kp): `{kp}` ({kp_warn})")
-        response.append(f"☀️ УФ-излучение: `{uv}` ({uv_warn})")
+        response.append(f"☀️ УФ-индекс: `{uv}` ({uv_status if 'uv_status' in locals() else uv_warn})")
     else:
         response.append("🌍 **Внешние данные:** ⚠️ Ошибка парсинга")
+
+
 
     await message.answer("\n".join(response), parse_mode="Markdown")
 
