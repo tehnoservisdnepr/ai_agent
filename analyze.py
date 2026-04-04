@@ -1,6 +1,6 @@
 #---------------------------
-# Старт: 04.04.26
-# Финальная сборка: Фикс Kp-индекса (игнорирование пустых значений)
+# Стабильная версия: 04.04.26
+# Фикс: Парсинг Kp-индекса через структуру row-item (по дампу)
 #---------------------------
 
 import requests
@@ -14,25 +14,29 @@ def get_weather_data():
         response = requests.get(url, headers=headers, timeout=10)
         html = response.text
         
-        # --- УФ-ИНДЕКС (Работает стабильно) ---
-        uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
+        # --- УФ-ИНДЕКС (Оставляем рабочую логику) ---
+        uv_sect = re.search(r'data-key=["\']?radiation["\']?.*?class=["\']?widget-row["\']?', html, re.S)
         uv_all = []
         if uv_sect:
             uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))]
 
-        # --- KP-ИНДЕКС (Магнитные бури) ---
-        kp_sect = re.search(r'data-key="geomagnetic".*?class="widget-row"', html, re.S)
+        # --- KP-ИНДЕКС (Новая логика на основе дампа) ---
+        # Ищем блок, содержащий фразу про геомагнитную активность
         kp_all = []
-        if kp_sect:
-            # Ищем все цифры в ячейках. Если Meteofor сует нули в начало, 
-            # мы фильтруем значимые данные или берем весь срез.
-            raw_kp = [int(n) for n in re.findall(r'>(\d)<', kp_sect.group(0))]
-            # Оставляем только 8 значений на сутки
-            kp_all = raw_kp[:8]
+        if "Геомагнітна активність" in html:
+            # Ищем все значения внутри тегов <div class="item item-X">
+            # Именно там лежат ваши 4, 5, 5...
+            kp_all = [int(n) for n in re.findall(r'class="item item-\d">\s*(\d)\s*<', html)]
+            
+            # Если по классам не нашлось, ищем через href="#gm_X" в SVG
+            if not kp_all:
+                kp_all = [int(n) for n in re.findall(r'href="#gm_(\d)"', html)]
+        
+        # Обрезаем до 8 значений (сутки), если их пришло больше
+        kp_all = kp_all[:8]
 
-        # Определяем текущий индекс (шаг 3 часа)
-        hour = datetime.now().hour
-        idx = hour // 3
+        # Индекс времени (шаг 3 часа)
+        idx = datetime.now().hour // 3
         
         return {
             "uv": uv_all[idx] if idx < len(uv_all) else (uv_all[-1] if uv_all else 0),
@@ -45,9 +49,9 @@ def get_weather_data():
 
 if __name__ == "__main__":
     res = get_weather_data()
-    if "error" in res:
-        print(f"❌ Ошибка: {res['error']}")
-    else:
+    if isinstance(res, dict) and "error" not in res:
         print(f"📊 Сводка Meteofor (Днепр):")
         print(f"☀️ УФ: {res['uv']} {res['uv_graph']}")
         print(f"🧲 Kp: {res['kp']} {res['kp_graph']}")
+    else:
+        print(f"❌ Ошибка: {res}")
