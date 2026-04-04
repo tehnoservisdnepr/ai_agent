@@ -1,6 +1,6 @@
 #---------------------------
-# Стабильная версия: 04.04.26
-# Фикс: Парсинг Kp-индекса через структуру row-item (по дампу)
+# Стабільна версія: 04.04.26
+# Фікс: Хірургічний парсинг Kp по структурі row-item
 #---------------------------
 
 import requests
@@ -14,29 +14,31 @@ def get_weather_data():
         response = requests.get(url, headers=headers, timeout=10)
         html = response.text
         
-        # --- УФ-ИНДЕКС (Оставляем рабочую логику) ---
-        uv_sect = re.search(r'data-key=["\']?radiation["\']?.*?class=["\']?widget-row["\']?', html, re.S)
+        # --- УФ-ІНДЕКС ---
         uv_all = []
+        uv_sect = re.search(r'data-key=["\']?radiation["\']?.*?class=["\']?widget-row["\']?', html, re.S)
         if uv_sect:
             uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))]
 
-        # --- KP-ИНДЕКС (Новая логика на основе дампа) ---
-        # Ищем блок, содержащий фразу про геомагнитную активность
+        # --- KP-ІНДЕКС (Магнітні бурі) ---
         kp_all = []
-        if "Геомагнітна активність" in html:
-            # Ищем все значения внутри тегов <div class="item item-X">
-            # Именно там лежат ваши 4, 5, 5...
-            kp_all = [int(n) for n in re.findall(r'class="item item-\d">\s*(\d)\s*<', html)]
+        # 1. Знаходимо початок секції геомагнітної активності
+        start_marker = html.find("Геомагнітна активність")
+        if start_marker != -1:
+            # 2. Беремо блок коду ПІСЛЯ заголовка (до наступного великого віджета)
+            # 3000 символів зазвичай вистачає на всю таблицю індексів
+            kp_area = html[start_marker:start_marker + 3000]
             
-            # Если по классам не нашлось, ищем через href="#gm_X" в SVG
-            if not kp_all:
-                kp_all = [int(n) for n in re.findall(r'href="#gm_(\d)"', html)]
-        
-        # Обрезаем до 8 значений (сутки), если их пришло больше
+            # 3. Шукаємо цифри саме в структурі, яку ми побачили в дампі:
+            # <div class="item item-4"> 4 </div>
+            kp_all = [int(n) for n in re.findall(r'class="item item-\d">\s*(\d)\s*<', kp_area)]
+
+        # Обрізаємо до 8 значень (прогноз на добу)
         kp_all = kp_all[:8]
 
-        # Индекс времени (шаг 3 часа)
-        idx = datetime.now().hour // 3
+        # Визначаємо поточний індекс за часом (крок 3 години)
+        hour = datetime.now().hour
+        idx = hour // 3
         
         return {
             "uv": uv_all[idx] if idx < len(uv_all) else (uv_all[-1] if uv_all else 0),
@@ -50,8 +52,8 @@ def get_weather_data():
 if __name__ == "__main__":
     res = get_weather_data()
     if isinstance(res, dict) and "error" not in res:
-        print(f"📊 Сводка Meteofor (Днепр):")
+        print(f"📊 Сводка Meteofor (Дніпро):")
         print(f"☀️ УФ: {res['uv']} {res['uv_graph']}")
         print(f"🧲 Kp: {res['kp']} {res['kp_graph']}")
     else:
-        print(f"❌ Ошибка: {res}")
+        print(f"❌ Помилка: {res}")
