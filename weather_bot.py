@@ -65,7 +65,9 @@ async def cmd_all(message: Message):
     await message.answer("\n".join(lines), parse_mode="Markdown")
 
 async def main():
-    logger.info("Бот запущен и готов к работе...")
+    # Удаляем старые сообщения, чтобы бот не захлебнулся при старте
+    await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("Бот запущен и очистил очередь сообщений...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
