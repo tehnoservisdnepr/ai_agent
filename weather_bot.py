@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 # Настройки
-TOKEN = "8744550835:AA..." # Замени на свой полный токен
+TOKEN = "8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk" # Замени на свой полный токен
 DOMOTICZ_URL = "http://100.96.33.208:8080/json.htm"
 DEVICE_IDX = "1"
 
