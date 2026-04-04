@@ -1,63 +1,50 @@
-#---------------------------
-# Стабильная версия: 04.04.26
-# Исправлено разделение Temp;Hum
-# v1.0 13:45
-#---------------------------
-
 import paho.mqtt.client as mqtt
 import json
-import time
+import math
+from datetime import datetime
 
-# --- НАСТРОЙКИ ---
-MQTT_HOST = "dacha" 
+MQTT_HOST = "100.96.33.208"
 MQTT_PORT = 1883
-TARGET_IDX = 1  # Ваш реальный датчик ESP8266
+TARGET_IDX = 1
 
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        print("✅ Подключено к брокеру!")
-        client.subscribe("domoticz/out")
-        print("📡 Подписка на domoticz/out оформлена.")
-        
-        # Запрос данных
-        payload = {"command": "getdeviceinfo", "idx": TARGET_IDX}
-        client.publish("domoticz/in", json.dumps(payload))
-        print(f"📤 Запрос состояния IDX {TARGET_IDX} отправлен...")
-    else:
-        print(f"❌ Ошибка подключения: {rc}")
+def calculate_dew_point(T, Rh):
+    # Коэффициенты для формулы Магнуса (стандарт для метео)
+    b, c = 17.625, 243.04
+    gamma = math.log(Rh/100) + (b * T) / (c + T)
+    return (c * gamma) / (b - gamma)
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
+        
         if data.get("idx") == TARGET_IDX:
-            print("\n🎯 ДАННЫЕ С ДАЧИ ПОЛУЧЕНЫ:")
-            print(f"Название: {data.get('name')}")
+            T = float(data.get("svalue1", 0))
+            Rh = float(data.get("svalue2", 0))
+            dew_point = calculate_dew_point(T, Rh)
             
-            svalue = data.get("svalue1", "")
-            if ";" in svalue:
-                # Разделяем: Температура;Влажность;Прочее
-                parts = svalue.split(";")
-                temp = parts[0]
-                hum = parts[1]
-                print(f"🌡 Температура: {temp}°C")
-                print(f"💧 Влажность: {hum}%")
-            else:
-                print(f"Значение: {svalue}")
-            print("-" * 30)
+            print(f"\n✅ ДАННЫЕ С ДАЧИ (IDX: {TARGET_IDX})")
+            print(f"🌡 Температура: {T}°C")
+            print(f"💧 Влажность:   {Rh}%")
+            print(f"🥤 Точка росы:  {dew_point:.2f}°C") # Наш "Компот"
+            
+            # Статус комфорта (как в Domoticz)
+            status = "Нормально" if 40 <= Rh <= 60 else "Сухо/Влажно"
+            print(f"✨ Статус:      {status}")
+            print(f"🕒 Обновлено:   {data.get('LastUpdate')}")
+            print("-" * 35)
             
     except Exception as e:
-        print(f"❌ Ошибка разбора JSON: {e}")
+        pass # Игнорируем системный шум
 
-# Использование актуальной версии API (убирает DeprecationWarning)
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-client.on_connect = on_connect
+client = mqtt.Client()
 client.on_message = on_message
 
-print(f"🚀 Запуск мониторинга на {MQTT_HOST}...")
 try:
     client.connect(MQTT_HOST, MQTT_PORT, 60)
+    client.subscribe("domoticz/out")
+    # Принудительный запрос статуса
+    client.publish("domoticz/in", json.dumps({"command": "getdeviceinfo", "idx": TARGET_IDX}))
+    print(f"🚀 Мониторинг {MQTT_HOST} запущен...")
     client.loop_forever()
-except KeyboardInterrupt:
-    print("\n👋 Остановлено пользователем.")
 except Exception as e:
-    print(f"💥 Ошибка: {e}")
+    print(f"❌ Сбой: {e}")

@@ -1,0 +1,15 @@
+.venv/
+venv/
+ENV/
+
+# python КЭШ
+**/__pycache__/
+*.py[cod]
+*$py.cllass
+
+.vscode/
+.idea/
+*.swp
+*.bak
+
+.log
