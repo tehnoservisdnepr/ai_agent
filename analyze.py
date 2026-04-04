@@ -1,5 +1,6 @@
-# Стабильная версия: 04.04.26
-# Точка отсчета: data-row="geomagnetic"
+#---------------------------
+# Старт: 04.04.26
+# Фикс: Захват всей последовательности Kp (8 значений)
 #---------------------------
 
 import requests
@@ -13,29 +14,26 @@ def get_weather_data():
         response = requests.get(url, headers=headers, timeout=10)
         html = response.text
         
-        # --- УФ-ИНДЕКС ---
+        # --- УФ-ИНДЕКС (Стабильно) ---
         uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
         uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))] if uv_sect else []
 
-        # --- KP-ИНДЕКС (Ваша отправная точка) ---
+        # --- KP-ИНДЕКС (Полная последовательность) ---
         kp_all = []
-        # Находим блок, который начинается с вашего ключевого слова
-        # Ищем секцию от 'data-row="geomagnetic"' до следующего закрывающего блока виджета
-        kp_sect = re.search(r'data-row=["\']?geomagnetic["\']?.*?</div>\s*</div>', html, re.S)
+        # Находим начало блока геомагнитки
+        start_index = html.find('data-key=geomagnetic')
+        if start_index != -1:
+            # Берем кусок кода с запасом (например, 5000 символов), 
+            # где гарантированно лежат все 8 плашек row-item
+            kp_block = html[start_index : start_index + 5000]
+            
+            # Ищем ВСЕ цифры в классах item-X внутри этого блока
+            kp_all = [int(n) for n in re.findall(r'class="item item-(\d)"', kp_block)]
         
-        if kp_sect:
-            # Внутри этой секции ищем цифры в классах item-4, item-5 и т.д.
-            # Это исключает попадание цифр из других таблиц
-            kp_all = [int(n) for n in re.findall(r'class="item item-(\d)"', kp_sect.group(0))]
-        
-        # Если вдруг классы изменились, берем просто цифры внутри этой секции
-        if not kp_all and kp_sect:
-            kp_all = [int(n) for n in re.findall(r'>\s*(\d)\s*<', kp_sect.group(0))]
-
-        # Ограничиваем прогноз на 8 значений (сутки)
+        # Оставляем только первые 8 (прогноз на ближайшие 24 часа)
         kp_all = kp_all[:8]
 
-        # Индекс времени (3-часовой шаг)
+        # Определяем индекс по текущему времени (3-часовой шаг)
         idx = datetime.now().hour // 3
         
         return {
