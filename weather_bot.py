@@ -5,49 +5,96 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
 
-# ИМПОРТ ИЗ ТВОЕГО ФАЙЛА
+# Импортируем твою функцию анализа из соседнего файла analyze.py
 from analyze import get_weather_analysis
 
 # --- НАСТРОЙКИ ---
-TOKEN = "8744550835:AA..." # Твой токен
+# Вставь сюда свой токен от BotFather
+TOKEN = "8744550835:AA..." 
+# IP твоей дачи через NetBird
 DOMOTICZ_URL = "http://100.96.33.208:8080/json.htm"
 
+# Настройка логирования, чтобы видеть всё в консоли
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Инициализация
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# --- ФУНКЦИЯ ДЛЯ ДОМОТИКСА ---
 async def get_domoticz_data():
-    """Запрос данных с дачи"""
+    """Запрос данных с датчика idx 1 на даче"""
     params = {"type": "command", "param": "getdevices", "idx": "1"}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(DOMOTICZ_URL, params=params, timeout=5) as resp:
                 if resp.status == 200:
                     return await resp.json()
-    except:
+    except Exception as e:
+        logger.error(f"Ошибка Domoticz: {e}")
         return None
+
+# --- ОБРАБОТЧИКИ КОМАНД ---
+
+@dp.message(Command("start"))
+async def cmd_start(message: Message):
+    await message.answer(
+        "🚀 **Система мониторинга запущена!**\n\n"
+        "Используй /status для получения сводки по даче и внешним индексам (УФ/Магнитные бури)."
+    )
 
 @dp.message(Command("status"))
 async def cmd_status(message: Message):
-    # Вызываем обе функции
-    data_domo = await get_domoticz_data()
-    data_weather = await get_weather_analysis()
+    # Запускаем запросы параллельно для скорости
+    domo_task = asyncio.create_task(get_domoticz_data())
+    weather_task = asyncio.create_task(get_weather_analysis())
     
-    res = ["📊 **Текущий статус:**\n"]
+    domo_data = await domo_task
+    weather = await weather_task
     
-    if data_domo and "result" in data_domo:
-        dev = data_domo["result"][0]
-        res.append(f"🏠 **Дача:** `{dev.get('Temp')}°C` (вл. {dev.get('Humidity')}%)\n")
+    response = ["📊 **ТЕКУЩИЙ СТАТУС:**\n"]
     
-    if data_weather:
-        res.append(f"🧲 **Магнитный индекс:** `{data_weather['kp']} Kp`")
-        res.append(f"☀️ **УФ-излучение:** `{data_weather['uv']}`")
-    
-    await message.answer("\n".join(res), parse_mode="Markdown")
+    # 1. Данные с дачи
+    if domo_data and "result" in domo_data:
+        dev = domo_data["result"][0]
+        temp = dev.get("Temp", "??")
+        hum = dev.get("Humidity", "??")
+        last = dev.get("LastUpdate", "??")
+        response.append(f"🏠 **Дача (Днепр):**")
+        response.append(f"🌡 Темп: `{temp}°C` | 💧 Влаж: `{hum}%`️")
+        response.append(f"🕒 _Обновлено: {last}_")
+    else:
+        response.append("🏠 **Дача:** ⚠️ Оффлайн (нет связи)")
 
+    response.append("\n" + "—" * 15 + "\n")
+
+    # 2. Данные из analyze.py (Meteofor)
+    if weather:
+        kp = weather.get('kp', 0)
+        uv = weather.get('uv', 0)
+        
+        # Пояснения к индексам
+        kp_warn = "🔴 БУРЯ!" if kp >= 5 else "🟢 Спокойно"
+        uv_warn = "⚠️ Нужна защита" if uv >= 6 else "✅ Безопасно"
+        
+        response.append(f"🌍 **Внешние индексы (Meteofor):**")
+        response.append(f"🧲 Магнитный (Kp): `{kp}` ({kp_warn})")
+        response.append(f"☀️ УФ-излучение: `{uv}` ({uv_warn})")
+    else:
+        response.append("🌍 **Внешние данные:** ⚠️ Ошибка парсинга")
+
+    await message.answer("\n".join(response), parse_mode="Markdown")
+
+# --- ЗАПУСК БОТА ---
 async def main():
+    # Очищаем все сообщения, которые пришли, пока бот был выключен
     await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("Бот запущен и готов к работе!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Бот остановлен.")
