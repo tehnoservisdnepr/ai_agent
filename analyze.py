@@ -1,7 +1,6 @@
 #---------------------------
-# Стабильная версия: 04.04.26
-# Исправлен поиск Kp-индекса
-# v1.0 13:44 
+# Старт: 04.04.26
+# Исправленная версия (Откат к рабочей логике)
 #---------------------------
 
 import requests
@@ -15,19 +14,27 @@ def get_weather_data():
         response = requests.get(url, headers=headers, timeout=10)
         html = response.text
         
-        # УФ-индекс (поиск блока radiation)
-        uv_sect = re.search(r'data-key="radiation".*?class="widget-row"', html, re.S)
-        uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))] if uv_sect else []
+        # --- УФ-ИНДЕКС ---
+        # Твой старый проверенный способ
+        uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
+        uv_all = []
+        if uv_sect:
+            # Ищем все числа, окруженные тегами
+            uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))]
 
-        # Kp-индекс (Геомагнитная активность)
-        # Ищем блок geomagnetic и вытаскиваем цифры из ячеек
+        # --- KP-ИНДЕКС ---
+        # Берем блок геомагнитки
+        kp_sect = re.search(r'data-key=geomagnetic.*?</div>\s*</div>', html, re.S)
         kp_all = []
-        kp_sect = re.search(r'data-key="geomagnetic".*?class="widget-row"', html, re.S)
         if kp_sect:
-            # Ищем цифры в формате >5< или >0<
-            kp_all = [int(n) for n in re.findall(r'>(\d)<', kp_sect.group(0))]
+            # Вытаскиваем все одиночные цифры
+            raw_nums = re.findall(r'\d+', kp_sect.group(0))
+            # Фильтруем только индексы (длиной 1 символ), чтобы не схватить лишнего
+            kp_all = [int(n) for n in raw_nums if len(n) == 1]
+            # Meteofor может дублировать значения, берем первые 8 (на сутки)
+            kp_all = kp_all[:8]
 
-        # Индекс времени (каждые 3 часа)
+        # Определяем текущий индекс (шаг 3 часа)
         idx = datetime.now().hour // 3
         
         return {
@@ -44,6 +51,6 @@ if __name__ == "__main__":
     if "error" in res:
         print(f"❌ Ошибка: {res['error']}")
     else:
-        print(f"📊 Прогноз Meteofor:")
+        print(f"📊 Данные Meteofor:")
         print(f"☀️ УФ-индекс: {res['uv']} {res['uv_graph']}")
         print(f"🧲 Kp-индекс: {res['kp']} {res['kp_graph']}")
