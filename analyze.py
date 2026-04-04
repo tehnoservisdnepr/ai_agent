@@ -1,6 +1,5 @@
-##---------------------------
-# Стабільна версія: 04.04.26
-# Фікс: Прямий збір Kp з класів item-X
+# Стабильная версия: 04.04.26
+# Точка отсчета: data-row="geomagnetic"
 #---------------------------
 
 import requests
@@ -14,19 +13,29 @@ def get_weather_data():
         response = requests.get(url, headers=headers, timeout=10)
         html = response.text
         
-        # --- УФ-ІНДЕКС ---
+        # --- УФ-ИНДЕКС ---
         uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
         uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))] if uv_sect else []
 
-        # --- KP-ІНДЕКС ---
-        # Витягуємо цифру прямо з назви класу (наприклад, item-5 -> 5)
-        # Це той самий метод, який відповідає вашому дампу
-        kp_all = [int(n) for n in re.findall(r'class="item item-(\d)"', html)]
+        # --- KP-ИНДЕКС (Ваша отправная точка) ---
+        kp_all = []
+        # Находим блок, который начинается с вашего ключевого слова
+        # Ищем секцию от 'data-row="geomagnetic"' до следующего закрывающего блока виджета
+        kp_sect = re.search(r'data-row=["\']?geomagnetic["\']?.*?</div>\s*</div>', html, re.S)
         
-        # Meteofor зазвичай видає 8 значень на добу
+        if kp_sect:
+            # Внутри этой секции ищем цифры в классах item-4, item-5 и т.д.
+            # Это исключает попадание цифр из других таблиц
+            kp_all = [int(n) for n in re.findall(r'class="item item-(\d)"', kp_sect.group(0))]
+        
+        # Если вдруг классы изменились, берем просто цифры внутри этой секции
+        if not kp_all and kp_sect:
+            kp_all = [int(n) for n in re.findall(r'>\s*(\d)\s*<', kp_sect.group(0))]
+
+        # Ограничиваем прогноз на 8 значений (сутки)
         kp_all = kp_all[:8]
 
-        # Визначаємо індекс за поточним часом (крок 3 години)
+        # Индекс времени (3-часовой шаг)
         idx = datetime.now().hour // 3
         
         return {
@@ -40,9 +49,6 @@ def get_weather_data():
 
 if __name__ == "__main__":
     res = get_weather_data()
-    if isinstance(res, dict) and "error" not in res:
-        print(f"📊 Сводка Meteofor (Дніпро):")
-        print(f"☀️ УФ: {res['uv']} {res['uv_graph']}")
-        print(f"🧲 Kp: {res['kp']} {res['kp_graph']}")
-    else:
-        print(f"❌ Помилка: {res}")
+    print(f"📊 Сводка Meteofor (Днепр):")
+    print(f"☀️ УФ: {res.get('uv')} {res.get('uv_graph')}")
+    print(f"🧲 Kp: {res.get('kp')} {res.get('kp_graph')}")
