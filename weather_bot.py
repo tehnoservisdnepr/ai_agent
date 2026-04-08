@@ -7,9 +7,11 @@ from aiogram.enums import ChatAction
 # Твой рабочий парсер
 from analyze import get_weather_analysis
 
+#8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk
+#8744550835
 # --- ДАННЫЕ (БЕЗ ШПИОНОМАНИИ) ---
-API_TOKEN = '6845347219:AAEY_ТВОЙ_ТОКЕН'  # Вставь свой токен
-ADMIN_ID = 812345678  # Вставь свой реальный ID, который на "8"
+API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'  # Вставь свой токен
+ADMIN_ID = 8744550835  # Вставь свой реальный ID, который на "8"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
