@@ -19,19 +19,19 @@ async def get_weather_analysis():
         
         soup = BeautifulSoup(html, 'html.parser')
         
-        # --- ТЕМПЕРАТУРА ---
-        # Сначала ищем по стандартному классу Meteofor
-        temp_el = soup.find("span", class_="unit_temperature_c")
-        if not temp_el:
-            # Запасной вариант: ищем любой элемент, где в названии класса есть 'temperature'
-            temp_el = soup.select_one('[class*="temperature"]')
+        # --- ВАРИАНТ 1: ПОИСК В СКРЫТОМ JSON ---
+        import json
+        temp = "н/д"
         
-        if temp_el:
-            temp = temp_el.get_text(strip=True).replace('+', '').replace('°C', '')
-        else:
-            # Крайний случай: поиск через регулярку в тексте
-            t_match = re.search(r'([+-]?\d+)\s*°C', html)
-            temp = t_match.group(1).replace('+', '') if t_match else "н/д"
+        # Ищем паттерн объекта погоды в коде страницы
+        # Обычно это выглядит как "current":{"temperature":{"c":15...
+        json_match = re.search(r'"current":\s?(\{.*?\})', html)
+        if json_match:
+            try:
+                data = json.loads(json_match.group(1))
+                temp = str(data.get('temperature', {}).get('c', 'н/д'))
+            except:
+                pass
 
         # --- УФ-ИНДЕКС (Radiation) ---
         uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
