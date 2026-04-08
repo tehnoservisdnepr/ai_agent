@@ -1,58 +1,43 @@
 import asyncio
 import aiohttp
-import re
 from datetime import datetime
-from bs4 import BeautifulSoup
-
-
-
-
 
 async def get_weather_analysis():
-    url = "https://www.meteofor.com.ua/ru/weather-dnipro-5077/"
+    # Прямой адрес API для Днепра (ID 5077)
+    api_url = "https://www.meteofor.com.ua/api/v1/weather/current/5077/"
+    # Ссылка на страницу для парсинга индексов (они там еще есть в HTML)
+    html_url = "https://www.meteofor.com.ua/ru/weather-dnipro-5077/"
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "X-Requested-With": "XMLHttpRequest"
     }
     
     try:
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url, timeout=15) as response:
-                if response.status != 200:
-                    return None
-                html = await response.text()
-        
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        # --- ВАРИАНТ 1: ПОИСК В СКРЫТОМ JSON ---
-        import json
-        # --- ВАРИАНТ 1: ГИБКИЙ ПОИСК В JSON (Обновленный) ---
-        temp = "н/д"
-        
-        # Ищем ключ "temperature" и значение "c": число
-        # Регулярка ищет паттерн "temperature":{..."c":15
-        json_match = re.search(r'"temperature":\s?\{[^{}]*"c":\s?(-?\d+)', html)
-        
-        if json_match:
-            temp = json_match.group(1)
-        else:
-            # Если не нашли, ищем просто "current":{"c":15 (такое тоже бывает)
-            alt_match = re.search(r'"current":\s?\{[^{}]*"c":\s?(-?\d+)', html)
-            if alt_match:
-                temp = alt_match.group(1)
+            # 1. Получаем температуру из API (чистый JSON)
+            async with session.get(api_url) as resp:
+                temp = "н/д"
+                if resp.status == 200:
+                    data = await resp.json()
+                    temp = str(data.get('temperature', {}).get('c', 'н/д'))
 
-        # --- УФ-ИНДЕКС (Radiation) ---
+            # 2. Получаем остальное из HTML (регулярки для индексов пока работают)
+            async with session.get(html_url) as resp:
+                html = await resp.text()
+
+        # Поиск индексов (твой старый рабочий код)
+        import re
         uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
         uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))] if uv_sect else []
-
-        # --- KP-ИНДЕКС (Geomagnetic) ---
-        kp_all = []
+        
         start_index = html.find('data-key=geomagnetic')
+        kp_all = []
         if start_index != -1:
             kp_block = html[start_index : start_index + 5000]
-            # Ищем уровни активности (item-1, item-2 и т.д.)
             kp_all = [int(n) for n in re.findall(r'class="[^"]*item-(\d)"', kp_block)]
         
-        kp_all = kp_all[:8] # Берем только 8 значений на текущие сутки
+        kp_all = kp_all[:8]
         idx = datetime.now().hour // 3
         
         return {
@@ -62,13 +47,11 @@ async def get_weather_analysis():
             "kp_graph": kp_all
         }
     except Exception as e:
-        print(f"Ошибка парсинга: {e}")
+        print(f"Ошибка: {e}")
         return None
 
-# Быстрый тест, если запустить файл напрямую
 if __name__ == "__main__":
-    res = asyncio.run(get_weather_analysis())
-    print(f"\n--- ТЕСТ ПАРСЕРА ---\nРезультат: {res}\n--------------------")
+    print(asyncio.run(get_weather_analysis()))
 
 
         
