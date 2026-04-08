@@ -1,44 +1,68 @@
 import asyncio
 import aiohttp
+import re
 from datetime import datetime
 
 async def get_weather_analysis():
-    # Прямой адрес API для Днепра (ID 5077)
-    api_url = "https://www.meteofor.com.ua/api/v1/weather/current/5077/"
-    # Ссылка на страницу для парсинга индексов (они там еще есть в HTML)
-    html_url = "https://www.meteofor.com.ua/ru/weather-dnipro-5077/"
+    # Ссылка на Днепр
+    url = "https://www.meteofor.com.ua/ru/weather-dnipro-5077/"
     
+    # Максимально подробные заголовки, чтобы сайт думал, что зашел человек из Chrome
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "X-Requested-With": "XMLHttpRequest"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
+        "Referer": "https://www.google.com/",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
     }
     
     try:
+        # Используем сессию для поддержки cookies
         async with aiohttp.ClientSession(headers=headers) as session:
-            # 1. Получаем температуру из API (чистый JSON)
-            async with session.get(api_url) as resp:
-                temp = "н/д"
-                if resp.status == 200:
-                    data = await resp.json()
-                    temp = str(data.get('temperature', {}).get('c', 'н/д'))
+            async with session.get(url, timeout=15) as response:
+                if response.status != 200:
+                    print(f"Ошибка доступа: статус {response.status}")
+                    return None
+                html = await response.text()
 
-            # 2. Получаем остальное из HTML (регулярки для индексов пока работают)
-            async with session.get(html_url) as resp:
-                html = await resp.text()
-
-        # Поиск индексов (твой старый рабочий код)
-        import re
-        uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
-        uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))] if uv_sect else []
+        # --- 1. ПОИСК ТЕМПЕРАТУРЫ ---
+        temp = "н/д"
         
-        start_index = html.find('data-key=geomagnetic')
+        # Попытка А: Ищем в JSON-структуре внутри <script>
+        # Обычно это выглядит так: "temperature":{"c":12.5 ...
+        json_temp = re.search(r'"temperature":\s?\{[^{}]*"c":\s?(-?\d+)', html)
+        
+        # Попытка Б: Ищем в тексте рядом со знаком градуса, если JSON не сработал
+        text_temp = re.search(r'([+-]?\d+)\s*°C', html)
+        
+        if json_temp:
+            temp = json_temp.group(1)
+        elif text_temp:
+            temp = text_temp.group(1)
+            
+        temp = temp.replace('+', '').strip()
+
+        # --- 2. ПОИСК УФ-ИНДЕКСА ---
+        uv_all = []
+        uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
+        if uv_sect:
+            uv_all = [int(n) for n in re.findall(r'>\s*(\d+)\s*<', uv_sect.group(0))]
+
+        # --- 3. ПОИСК KP-ИНДЕКСА (Магнитные бури) ---
         kp_all = []
+        start_index = html.find('data-key=geomagnetic')
         if start_index != -1:
             kp_block = html[start_index : start_index + 5000]
+            # Ищем классы item-1, item-2... это и есть уровни бури
             kp_all = [int(n) for n in re.findall(r'class="[^"]*item-(\d)"', kp_block)]
         
+        # Ограничиваем список 8 значениями (на сутки)
         kp_all = kp_all[:8]
-        idx = datetime.now().hour // 3
+        
+        # Определяем текущий индекс (каждые 3 часа)
+        hour = datetime.now().hour
+        idx = hour // 3
         
         return {
             "temp": temp,
@@ -46,12 +70,17 @@ async def get_weather_analysis():
             "kp": kp_all[idx] if idx < len(kp_all) else (kp_all[-1] if kp_all else 0),
             "kp_graph": kp_all
         }
+
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"Ошибка в analyze.py: {e}")
         return None
 
+# Для тестирования напрямую в консоли
 if __name__ == "__main__":
-    print(asyncio.run(get_weather_analysis()))
+    res = asyncio.run(get_weather_analysis())
+    print("\n--- РЕЗУЛЬТАТ ТЕСТА ---")
+    print(res)
+    print("-----------------------\n")
 
 
         
