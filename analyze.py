@@ -26,22 +26,19 @@ async def get_weather_analysis():
                     return None
                 html = await response.text()
 
-        # --- 1. ПОИСК ТЕМПЕРАТУРЫ ---
         temp = "н/д"
         
-        # Попытка А: Ищем в JSON-структуре внутри <script>
-        # Обычно это выглядит так: "temperature":{"c":12.5 ...
-        json_temp = re.search(r'"temperature":\s?\{[^{}]*"c":\s?(-?\d+)', html)
+        # Ищем паттерн "temperatureAir":[число]
+        # Мы видели это в твоем дампе: "temperatureAir":[10]
+        t_match = re.search(r'"temperatureAir":\s?\[\s?(-?\d+)', html)
         
-        # Попытка Б: Ищем в тексте рядом со знаком градуса, если JSON не сработал
-        text_temp = re.search(r'([+-]?\d+)\s*°C', html)
-        
-        if json_temp:
-            temp = json_temp.group(1)
-        elif text_temp:
-            temp = text_temp.group(1)
-            
-        temp = temp.replace('+', '').strip()
+        if t_match:
+            temp = t_match.group(1)
+        else:
+            # Запасной вариант, если ключ чуть другой (например, для ощущаемой)
+            t_match = re.search(r'"temperature":\s?\{\s?"c":\s?(-?\d+)', html)
+            if t_match:
+                temp = t_match.group(1)
 
         # --- 2. ПОИСК УФ-ИНДЕКСА ---
         uv_all = []
