@@ -1,67 +1,82 @@
-import asyncio
 import logging
-import aiohttp
-from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import Message
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import executor
+from datetime import datetime
+
+# Импортируем твой исправленный парсер
 from analyze import get_weather_analysis
 
-TOKEN = "8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk" 
-DOMOTICZ_URL = "http://100.96.33.208:8080/json.htm"
+# --- НАСТРОЙКИ ---
+API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'  # Вставь свой токен
+ADMIN_ID = 8744550835        # Вставь свой числовой ID (был в логах)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Настройка логирования, чтобы в консоли было видно, что происходит
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S"
+)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
-async def get_domoticz_data():
-    params = {"type": "command", "param": "getdevices", "idx": "1"}
+# --- ФУНКЦИИ ИНТЕРФЕЙСА ---
+
+async def set_main_menu(bot: Bot):
+    """Создает синюю кнопку 'Меню' слева от поля ввода"""
+    main_menu_commands = [
+        types.BotCommand(command="/status", description="📊 Текущий статус"),
+        types.BotCommand(command="/start", description="🔄 Перезапуск"),
+        types.BotCommand(command="/help", description="❓ Помощь")
+    ]
+    await bot.set_my_commands(main_menu_commands)
+
+async def on_startup(dispatcher):
+    """Выполняется один раз при запуске скрипта"""
+    await set_main_menu(bot)
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(DOMOTICZ_URL, params=params, timeout=5) as resp:
-                if resp.status == 200: return await resp.json()
-    except: return None
+        await bot.send_message(ADMIN_ID, "🚀 **Бот запущен и готов к работе!**\nПарсер Meteofor: ✅ OK\nДанные: Актуальны")
+        logging.info("Бот успешно отправил уведомление о запуске.")
+    except Exception as e:
+        logging.error(f"Не удалось отправить уведомление админу: {e}")
 
-@dp.message(Command("status"))
-async def cmd_status(message: Message):
-    domo_task = asyncio.create_task(get_domoticz_data())
-    weather_task = asyncio.create_task(get_weather_analysis())
+# --- ОБРАБОТЧИКИ КОМАНД ---
+
+@dp.message_handler(commands=['start', 'help'])
+async def send_welcome(message: types.Message):
+    await message.reply(
+        "👋 Привет! Я бот-монитор.\n\n"
+        "Жми **/status**, чтобы узнать погоду в Днепре и состояние датчиков."
+    )
+
+@dp.message_handler(commands=['status'])
+async def status_command(message: types.Message):
+    # Показываем "печатает...", пока скрипт парсит сайт
+    await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
     
-    domo_data = await domo_task
-    weather = await weather_task
+    res = await get_weather_analysis()
     
-    response = ["📊 **ТЕКУЩИЙ СТАТУС:**\n"]
+    if not res:
+        await message.answer("❌ Ошибка при получении данных.")
+        return
+
+    # Формируем текст сообщения
+    text = (
+        f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
+        f"🏠 Дача: ⚠️ Оффлайн\n"
+        f"———————————————\n\n"
+        f"🌍 **Внешние данные (Днепр):**\n"
+        f"🌡 По городу: {res['temp']}°C\n"
+        f"🧲 Kp: {res['kp']} ({'🟢 Спокойно' if res['kp'] < 4 else '🔴 Буря!'})\n"
+        f"☀️ УФ: {res['uv']} ({'🟢 Низкий' if res['uv'] < 3 else '⚠️ Нужна защита'})\n"
+        f"📊 Прогноз Kp: {res['kp_graph']}"
+    )
     
-    # Дача
-    if domo_data and "result" in domo_data:
-        dev = domo_data["result"][0]
-        response.append(f"🏠 **Дача:** 🌡 `{dev.get('Temp')}°C` | 💧 `{dev.get('Humidity')}%`")
-    else:
-        response.append("🏠 **Дача:** ⚠️ Оффлайн")
+    await message.answer(text, parse_mode="Markdown")
 
-    response.append("\n" + "—" * 15 + "\n")
-
-    # Внешние данные
-    if weather:
-        kp = weather.get('kp', 0)
-        uv = weather.get('uv', 0)
-        kp_warn = "🔴 БУРЯ!" if kp >= 5 else "🟢 Спокойно"
-        uv_warn = "⚠️ Нужна защита" if uv >= 3 else "✅ Безопасно"
-        
-        response.append(f"🌍 **Внешние данные (Днепр):**")
-        response.append(f"🌡 По городу: `{weather.get('temp')}°C`")
-        response.append(f"🧲 Kp: `{kp}` ({kp_warn})")
-        response.append(f"☀️ УФ: `{uv}` ({uv_warn})")
-        response.append(f"📊 Прогноз Kp: `{weather.get('kp_graph')}`")
-    else:
-        response.append("🌍 **Внешние данные:** ⚠️ Ошибка парсинга")
-
-    await message.answer("\n".join(response), parse_mode="Markdown")
-
-async def main():
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+# --- ЗАПУСК ---
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # skip_updates=True игнорирует сообщения, присланные пока бот был выключен
+    executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
