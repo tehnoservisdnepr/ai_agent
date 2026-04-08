@@ -4,6 +4,10 @@ import re
 from datetime import datetime
 from bs4 import BeautifulSoup
 
+
+
+
+
 async def get_weather_analysis():
     url = "https://www.meteofor.com.ua/ru/weather-dnipro-5077/"
     headers = {
@@ -21,17 +25,20 @@ async def get_weather_analysis():
         
         # --- ВАРИАНТ 1: ПОИСК В СКРЫТОМ JSON ---
         import json
+        # --- ВАРИАНТ 1: ГИБКИЙ ПОИСК В JSON (Обновленный) ---
         temp = "н/д"
         
-        # Ищем паттерн объекта погоды в коде страницы
-        # Обычно это выглядит как "current":{"temperature":{"c":15...
-        json_match = re.search(r'"current":\s?(\{.*?\})', html)
+        # Ищем ключ "temperature" и значение "c": число
+        # Регулярка ищет паттерн "temperature":{..."c":15
+        json_match = re.search(r'"temperature":\s?\{[^{}]*"c":\s?(-?\d+)', html)
+        
         if json_match:
-            try:
-                data = json.loads(json_match.group(1))
-                temp = str(data.get('temperature', {}).get('c', 'н/д'))
-            except:
-                pass
+            temp = json_match.group(1)
+        else:
+            # Если не нашли, ищем просто "current":{"c":15 (такое тоже бывает)
+            alt_match = re.search(r'"current":\s?\{[^{}]*"c":\s?(-?\d+)', html)
+            if alt_match:
+                temp = alt_match.group(1)
 
         # --- УФ-ИНДЕКС (Radiation) ---
         uv_sect = re.search(r'data-key=radiation.*?<div class="widget-row', html, re.S)
