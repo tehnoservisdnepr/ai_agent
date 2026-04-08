@@ -27,8 +27,14 @@ async def get_weather_analysis():
         kp_all = kp_all[:8]
         idx = datetime.now().hour // 3
         
-        # Температура
-        t_match = re.search(r'class="unit_temperature_c">([^<]+)', html) or re.search(r'(\+?\d+)°C', html)
+        # --- ТЕМПЕРАТУРА (Универсальный поиск) ---
+        # Ищем любое число (целое или с +/-), после которого стоит °C
+        t_match = re.search(r'([+-]?\d+)\s*°C', html)
+        
+        if not t_match:
+            # Запасной вариант по классу, если первый не сработал
+            t_match = re.search(r'class="[^"]*unit_temperature_c[^"]*">([^<]+)', html)
+            
         temp = t_match.group(1).replace('+', '').strip() if t_match else "н/д"
         
         return {

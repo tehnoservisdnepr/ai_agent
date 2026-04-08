@@ -1,0 +1,18 @@
+проблемы в сети 21;05 07.04.26
+
+192.168.0.167(desktop) не пингуются
+					    dacha
+						
+			putty      не резолвится 		  
+					    dacha
+						zero
+192.168.0.166(domoticz) не пингуется
+						dacha
+				ssh     connect to host dacha port 22: No route to host
+	
+192.168.31.10(zero)     не пингуется
+						dacha
+			ssh         не резолвится
+						pi@dacha  ssh: connect to host dacha port 22: No route to host
+192.168.8.100(dacha)	все пингуется			
+			ssh         все резолвится				
