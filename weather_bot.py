@@ -12,6 +12,7 @@ from analyze import get_weather_analysis
 # --- ДАННЫЕ (БЕЗ ШПИОНОМАНИИ) ---
 API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'  # Вставь свой токен
 ADMIN_ID = 8744550835  # Вставь свой реальный ID, который на "8"
+# breakpoint()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
