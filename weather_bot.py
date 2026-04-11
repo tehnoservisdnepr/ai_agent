@@ -1,75 +1,66 @@
-import logging
 import asyncio
+import json
+import paho.mqtt.client as mqtt
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.enums import ChatAction
-
-# Твой рабочий парсер
 from analyze import get_weather_analysis
 
-#8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk
-#8744550835
-# --- ДАННЫЕ (БЕЗ ШПИОНОМАНИИ) ---
-API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'  # Вставь свой токен
-ADMIN_ID = 8744550835  # Вставь свой реальный ID, который на "8"
-# breakpoint()
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+# --- КОНФИГУРАЦИЯ ---
+API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'
+ADMIN_ID = 887949813
+MQTT_BROKER = "192.168.0.198"
+MQTT_TOPIC = "domoticz/in"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- МЕНЮ ---
-
-async def set_main_menu():
-    main_menu_commands = [
-        types.BotCommand(command="status", description="📊 Проверить статус"),
-        types.BotCommand(command="start", description="🔄 Старт"),
-    ]
-    await bot.set_my_commands(main_menu_commands)
-
-# --- ОБРАБОТЧИКИ ---
-
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    # Если хочешь точно узнать свой ID, раскомментируй строку ниже:
-    # print(f"Твой ID: {message.from_user.id}")
-    await message.answer("👋 Привет! Я готов. Жми /status")
+# Функция отправки в Domoticz
+def send_to_domoticz(res):
+    try:
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        client.connect(MQTT_BROKER, 1883, 30)
+        
+        payloads = [
+            {"command": "udevice", "idx": 14, "nvalue": 0, "svalue": str(res['temp'])},
+            {"command": "udevice", "idx": 15, "nvalue": 0, "svalue": f"{res['uv']};0"},
+            {"command": "udevice", "idx": 16, "nvalue": 0, "svalue": str(res['kp'])}
+        ]
+        
+        for p in payloads:
+            client.publish(MQTT_TOPIC, json.dumps(p))
+        client.disconnect()
+        return "✅ Данные на Дачу доставлены"
+    except Exception as e:
+        return f"⚠️ Ошибка MQTT: {e}"
 
 @dp.message(Command("status"))
 async def cmd_status(message: types.Message):
-    await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    if message.from_user.id != ADMIN_ID: return
+
+    wait_msg = await message.answer("🔄 Запрашиваю данные...")
     res = await get_weather_analysis()
     
-    if not res:
-        await message.answer("❌ Ошибка получения данных.")
-        return
-
-    text = (
-        f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
-        f"🏠 Дача: ⚠️ Оффлайн\n"
-        f"———————————————\n\n"
-        f"🌍 **Внешние данные (Днепр):**\n"
-        f"🌡 По городу: {res['temp']}°C\n"
-        f"🧲 Kp-индекс: {res['kp']} ({'🟢 Ок' if res['kp'] < 4 else '🔴 Буря'})\n"
-        f"☀️ УФ-индекс: {res['uv']} ({'🟢 Ок' if res['uv'] < 3 else '⚠️ Опасно'})\n"
-        f"📊 Прогноз Kp: {res['kp_graph']}"
-    )
-    await message.answer(text, parse_mode="Markdown")
-
-# --- ЗАПУСК ---
+    if res:
+        mqtt_status = send_to_domoticz(res)
+        
+        text = (
+            f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
+            f"🏠 Дача: {mqtt_status}\n"
+            f"———————————————\n"
+            f"🌍 Днепр (Meteofor):\n"
+            f"🌡 Температура: {res['temp']}°C\n"
+            f"🧲 Kp-индекс: {res['kp']}\n"
+            f"☀️ УФ-индекс: {res['uv']}\n"
+            f"📈 Прогноз Kp: {', '.join(map(str, res['kp_graph']))}"
+        )
+    else:
+        text = "❌ Ошибка получения данных с Meteofor"
+    
+    await wait_msg.edit_text(text, parse_mode="Markdown")
 
 async def main():
-    await set_main_menu()
-    try:
-        await bot.send_message(ADMIN_ID, "🚀 **Бот запущен!**\nID на 8 подтвержден.")
-    except Exception as e:
-        print(f"Уведомление не ушло: {e}")
-    
+    print("🚀 Бот-дежурный запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        print("Бот выключен")
+    asyncio.run(main())
