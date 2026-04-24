@@ -5,6 +5,8 @@ import json
 import sys
 from ai_engine import get_ai_verdict
 import asyncio
+import json
+
 
 
 # Настройка вывода для терминала

@@ -2,6 +2,7 @@ import asyncio
 from groq import AsyncGroq  # КРИТИЧЕСКИ ВАЖНО: импортируем асинхронный клиент
 from api_token import GROQ_API_KEY
 from analyze import get_weather_analysis
+import json
 
 # Инициализация асинхронного клиента
 client = AsyncGroq(api_key=GROQ_API_KEY)
