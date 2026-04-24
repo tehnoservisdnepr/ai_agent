@@ -4,6 +4,7 @@ import requests
 import json
 import sys
 from ai_engine import get_ai_verdict
+import asyncio
 
 
 # Настройка вывода для терминала
