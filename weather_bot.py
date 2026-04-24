@@ -7,8 +7,9 @@ from analyze import get_weather_analysis
 
 # --- КОНФИГУРАЦИЯ ---
 API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'
-ADMIN_ID = 887949813
-MQTT_BROKER = "192.168.0.198"
+ALLOWED_USERS = [887949813,742097442]  # Вставьте вместо ID_СЫНА его цифры
+#   ADMIN_ID = 887949813
+MQTT_BROKER = "192.168.0.123"
 MQTT_TOPIC = "domoticz/in"
 
 bot = Bot(token=API_TOKEN)
@@ -33,9 +34,13 @@ def send_to_domoticz(res):
     except Exception as e:
         return f"⚠️ Ошибка MQTT: {e}"
 
+
+
+
 @dp.message(Command("status"))
 async def cmd_status(message: types.Message):
-    if message.from_user.id != ADMIN_ID: return
+    if message.from_user.id not in ALLOWED_USERS: return
+    #if message.from_user.id != ADMIN_ID: return
 
     wait_msg = await message.answer("🔄 Запрашиваю данные...")
     res = await get_weather_analysis()
@@ -43,16 +48,23 @@ async def cmd_status(message: types.Message):
     if res:
         mqtt_status = send_to_domoticz(res)
         
+        
+        # Добавьте эти строки перед формированием переменной text
+        uv_warning = "⚠️ Высокий!" if float(res['uv']) >= 6 else "✅ Норма"
+        kp_warning = "🆘 БУРЯ!" if float(res['kp']) >= 5 else ""
+
         text = (
             f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
             f"🏠 Дача: {mqtt_status}\n"
             f"———————————————\n"
             f"🌍 Днепр (Meteofor):\n"
             f"🌡 Температура: {res['temp']}°C\n"
-            f"🧲 Kp-индекс: {res['kp']}\n"
-            f"☀️ УФ-индекс: {res['uv']}\n"
-            f"📈 Прогноз Kp: {', '.join(map(str, res['kp_graph']))}"
+            f"🧲 Kp-индекс: {res['kp']} {kp_warning}\n"
+            f"☀️ УФ-индекс: {res['uv']} ({uv_warning})\n"
+            f"📈 Прогноз Kp: {', '.join(map(str, res['kp_graph']))}\n\n"
+            f"🧐 _Помни: данные из аэропорта, верь своим чувствам!_"
         )
+    
     else:
         text = "❌ Ошибка получения данных с Meteofor"
     
