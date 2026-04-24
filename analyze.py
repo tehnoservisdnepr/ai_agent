@@ -65,6 +65,7 @@ async def get_weather_analysis():
             "temp": temp,
             "uv": uv_all[idx] if idx < len(uv_all) else (uv_all[-1] if uv_all else 0),
             "kp": kp_all[idx] if idx < len(kp_all) else (kp_all[-1] if kp_all else 0),
+            "uv_graph": uv_all[:8],
             "kp_graph": kp_all
         }
 

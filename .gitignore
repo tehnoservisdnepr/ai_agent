@@ -6,6 +6,11 @@ ENV/
 **/__pycache__/
 *.py[cod]
 *$py.cllass
+!ai_engine.py
+!hunter.py
+
+
+
 
 .vscode/
 .idea/
@@ -13,3 +18,17 @@ ENV/
 *.bak
 
 .log
+
+api_token.py
+github-recovery-codes.txt
+*.pdf
+*.html
+*.htm
+*.PNG
+*.png
+*.jpg
+*.ttf
+*.db
+search*
+https*
+

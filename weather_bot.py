@@ -1,79 +1,49 @@
+import logging
 import asyncio
-import json
-import paho.mqtt.client as mqtt
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+
+# Твои рабочие модули из списка ls -l
 from analyze import get_weather_analysis
-from ai_engine import get_ai_verdict         #  24.04.25 старт ИИ агента
+from ai_engine import get_ai_verdict
+from api_token import TELEGRAM_TOKEN
 
-# --- КОНФИГУРАЦИЯ ---
-API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'
-ALLOWED_USERS = [887949813,742097442]  # Вставьте вместо ID_СЫНА его цифры
-#   ADMIN_ID = 887949813
-MQTT_BROKER = "192.168.0.123"
-MQTT_TOPIC = "domoticz/in"
+logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=API_TOKEN)
+bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
-# Функция отправки в Domoticz
-def send_to_domoticz(res):
-    try:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        client.connect(MQTT_BROKER, 1883, 30)
-        
-        payloads = [
-            {"command": "udevice", "idx": 14, "nvalue": 0, "svalue": str(res['temp'])},
-            {"command": "udevice", "idx": 15, "nvalue": 0, "svalue": f"{res['uv']};0"},
-            {"command": "udevice", "idx": 16, "nvalue": 0, "svalue": str(res['kp'])}
-        ]
-        
-        for p in payloads:
-            client.publish(MQTT_TOPIC, json.dumps(p))
-        client.disconnect()
-        return "✅ Данные на Дачу доставлены"
-    except Exception as e:
-        return f"⚠️ Ошибка MQTT: {e}"
-
-
-
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer("Привет! Гляжу в Meteofor, спрашиваю Llama 3. Жми /status")
 
 @dp.message(Command("status"))
 async def cmd_status(message: types.Message):
-    if message.from_user.id not in ALLOWED_USERS: return
-    #if message.from_user.id != ADMIN_ID: return
-
-    wait_msg = await message.answer("🔄 Запрашиваю данные...")
+    # 1. Тянем погоду через analyze.py
     res = await get_weather_analysis()
     
     if res:
-        mqtt_status = send_to_domoticz(res)
-        
-        
-        # Добавьте эти строки перед формированием переменной text
-        uv_warning = "⚠️ Высокий!" if float(res['uv']) >= 6 else "✅ Норма"
-        kp_warning = "🆘 БУРЯ!" if float(res['kp']) >= 5 else ""
+        # 2. Спрашиваем ИИ через ai_engine.py
+        ai_opinion = await get_ai_verdict("OK")
 
+        # 3. Собираем сообщение
         text = (
             f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
-            f"🏠 Дача: {mqtt_status}\n"
-            f"———————————————\n"
             f"🌍 Днепр (Meteofor):\n"
             f"🌡 Температура: {res['temp']}°C\n"
-            f"🧲 Kp-индекс: {res['kp']} {kp_warning}\n"
-            f"☀️ УФ-индекс: {res['uv']} ({uv_warning})\n"
-            f"📈 Прогноз Kp: {', '.join(map(str, res['kp_graph']))}\n\n"
+            f"🧲 Kp-индекс: {res['kp']}\n"
+            f"☀️ УФ-индекс: {res['uv']}\n\n"
+            f"🤖 **АНАЛИЗ ИИ:**\n{ai_opinion}\n\n"
             f"🧐 _Помни: данные из аэропорта, верь своим чувствам!_"
         )
-    
+        
+        await message.answer(text)
     else:
-        text = "❌ Ошибка получения данных с Meteofor"
-    
-    await wait_msg.edit_text(text, parse_mode="Markdown")
+        await message.answer("❌ Meteofor молчит...")
 
 async def main():
-    print("🚀 Бот-дежурный запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+
