@@ -71,5 +71,5 @@ async def fetch_news():  # Добавили async
             print(f"--- Готово! Оценка ИИ: {analysis['score']}/10")
 
 if __name__ == "__main__":
-    fetch_news()
+    asyncio.run(fetch_news())
 
