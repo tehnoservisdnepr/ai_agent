@@ -66,7 +66,7 @@ def fetch_news():
     for entry in feed.entries[:3]:
         print(f"\nНовость: {entry.title}")
         print(f"  --> Джарвис (через Groq) анализирует...")
-        analysis = await get_ai_verdict(entry.title))
+        analysis = await get_ai_verdict(entry.title)
         if save_to_db(analysis['ru_title'], analysis['score'], analysis['reason'], entry.link):
             print(f"--- Готово! Оценка ИИ: {analysis['score']}/10")
 
