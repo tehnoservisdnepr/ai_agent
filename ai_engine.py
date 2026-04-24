@@ -6,42 +6,32 @@ from analyze import get_weather_analysis
 # Инициализация асинхронного клиента
 client = AsyncGroq(api_key=GROQ_API_KEY)
 
-async def get_ai_verdict(network_status="OK"):
-    weather = await get_weather_analysis()
-
-    if not weather:
-        return "❌ Не удалось получить данные для анализа."
-
-    context = (
-        f"Статус сети: {network_status}. "
-        f"Температура: {weather['temp']}°C, "
-        f"Магнитная активность (Kp): {weather['kp']}, "
-        f"УФ-индекс: {weather['uv']}."
-    )
-
+async def get_ai_verdict(title): # Теперь принимаем заголовок новости
     try:
-# Используем актуальную модель Llama 3.1
         response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant", 
+            model="llama-3.1-8b-instant",
             messages=[
                 {
-                   "role": "system",
-            "content": "Ты ведущий инженер-аналитик. Оценивай новости по шкале от 1 до 10. "
-           "Твои главные интересы: Linux, промышленная автоматика, инверторы, "
-           "солнечные панели (BMS, JK BMS), умный дом (Domoticz, Home Assistant) и Python. "
-           "Если новость касается этих тем — ставь 8-10. Если это просто обзоры игр или ретро — ставь 1-3. "
-           "Дай вердикт на русском языке кратко. НЕ используй символы * и _."
+                    "role": "system",
+                    "content": (
+                        "Ты ассистент инженера Сергея. Он эксперт по инверторам, BMS, Linux и умным домам. "
+                        "Проанализируй заголовок новости и ответь СТРОГО в формате JSON. "
+                        "Поля: 'ru_title' (перевод), 'score' (число 1-10), 'reason' (кратко почему). "
+                        "Интересы: электроника, солнечная энергетика, автоматизация. "
+                        "Если тема — ретро-игры, ставь score 1-3."
+                    )
                 },
-                {"role": "user", "content": context}
-            ]
+                {"role": "user", "content": f"Новость: {title}"}
+            ],
+            response_format={"type": "json_object"} # Заставляем Groq выдать JSON
         )
-        verdict = response.choices[0].message.content
         
-        # Очистка текста от спецсимволов Markdown, чтобы Telegram не ругался
-        return verdict.replace("*", "").replace("_", "")
+        verdict_text = response.choices[0].message.content
+        # Превращаем текст в настоящий словарь Python
+        return json.loads(verdict_text)
         
     except Exception as e:
-        print(f"!!! Ошибка внутри ask_ai: {e}") # <-- Добавь эту строку
+        print(f"!!! Ошибка внутри get_ai_verdict: {e}")
         return {"ru_title": "Ошибка анализа", "score": 1, "reason": str(e)}
         
         
