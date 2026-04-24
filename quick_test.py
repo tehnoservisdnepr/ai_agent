@@ -1,6 +1,12 @@
-from ai_engine import analyze_news  # или как там называется функция в ai_engine.py
+import asyncio
+from ai_engine import get_ai_verdict
 
-test_text = "Вышел новый драйвер для JK BMS под Linux и интеграция с Home Assistant"
-print("Запрос к Джарвису...")
-result = analyze_news(test_text)
-print(f"Вердикт: {result}")
+async def test():
+    print("Запрос к Джарвису (через Groq)...")
+    # Передаем текст новости прямо в функцию
+    # (Убедись, что внутри get_ai_verdict переменная context берется правильно)
+    result = await get_ai_verdict("Тестовая новость: Вышла новая прошивка для инверторов и JK BMS с поддержкой Linux")
+    print(f"--- Готово! Вердикт ИИ: {result}")
+
+if __name__ == "__main__":
+    asyncio.run(test())
