@@ -58,7 +58,7 @@ def save_to_db(ru_title, score, reason, link):
         print(f"Ошибка БД: {e}")
         return False
 
-def fetch_news():
+async def fetch_news():  # Добавили async
     URL = "https://hackaday.com/blog/feed/"
     print(f"Сканирую {URL}...")
     feed = feedparser.parse(URL)
