@@ -41,5 +41,8 @@ async def get_ai_verdict(network_status="OK"):
         return verdict.replace("*", "").replace("_", "")
         
     except Exception as e:
-        return f"⚠️ Ошибка ИИ: {str(e)}"
+        print(f"!!! Ошибка внутри ask_ai: {e}") # <-- Добавь эту строку
+        return {"ru_title": "Ошибка анализа", "score": 1, "reason": str(e)}
+        
+        
 
