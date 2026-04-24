@@ -4,6 +4,7 @@ import paho.mqtt.client as mqtt
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from analyze import get_weather_analysis
+from ai_engine import get_ai_verdict         #  24.04.25 старт ИИ агента
 
 # --- КОНФИГУРАЦИЯ ---
 API_TOKEN = '8744550835:AAHb1VYtuMDqpJp6oyF8DUq-3plTMR1AZlk'
