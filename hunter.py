@@ -3,6 +3,8 @@ import mysql.connector
 import requests
 import json
 import sys
+from ai_engine import get_ai_verdict
+
 
 # Настройка вывода для терминала
 if sys.stdout.encoding != 'utf-8':
@@ -16,7 +18,7 @@ DB_CONFIG = {
     "password": "123456",
     "database": "ai_agents"
 }
-
+'''
 def ask_ai(title):
     # Теперь стучимся к Groq
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -24,7 +26,7 @@ def ask_ai(title):
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
-    
+'''    
     prompt = f"Ты помощник инженера Сергея. Он чинит инверторы и BMS. Проанализируй новость: '{title}'. 1. Переведи на русский. 2. Оцени полезность для мастера электроники (0-10). Ответь ТОЛЬКО чистым JSON: {{\"ru_title\": \"...\", \"score\": 0, \"reason\": \"...\"}}"
     
     data = {
@@ -65,7 +67,7 @@ def fetch_news():
     for entry in feed.entries[:3]:
         print(f"\nНовость: {entry.title}")
         print(f"  --> Джарвис (через Groq) анализирует...")
-        analysis = ask_ai(entry.title)
+        analysis = await get_ai_verdict(entry.title))
         if save_to_db(analysis['ru_title'], analysis['score'], analysis['reason'], entry.link):
             print(f"--- Готово! Оценка ИИ: {analysis['score']}/10")
 
