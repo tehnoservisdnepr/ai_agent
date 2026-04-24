@@ -68,6 +68,14 @@ async def fetch_news():  # Добавили async
         print(f"\nНовость: {entry.title}")
         print(f"  --> Джарвис (через Groq) анализирует...")
         analysis = await get_ai_verdict(entry.title)
+        # Если пришла строка, пробуем превратить её в словарь
+        if isinstance(analysis, str):
+            try:
+                import json
+                analysis = json.loads(analysis)
+            except:
+                # Если совсем всё плохо, создаем "заглушку"
+                analysis = {"ru_title": analysis, "score": 1, "reason": "Не удалось распарсить JSON"}
         if save_to_db(analysis['ru_title'], analysis['score'], analysis['reason'], entry.link):
             print(f"--- Готово! Оценка ИИ: {analysis['score']}/10")
 
