@@ -18,16 +18,9 @@ DB_CONFIG = {
     "password": "123456",
     "database": "ai_agents"
 }
-'''
-def ask_ai(title):
-    # Теперь стучимся к Groq
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-'''
-#
+
+
+
     prompt = f"Ты помощник инженера Сергея. Он чинит инверторы и BMS. Проанализируй новость: '{title}'. 1. Переведи на русский. 2. Оцени полезность для мастера электроники (0-10). Ответь ТОЛЬКО чистым JSON: {{\"ru_title\": \"...\", \"score\": 0, \"reason\": \"...\"}}"
     
     data = {
