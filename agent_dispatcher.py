@@ -4,9 +4,15 @@ import aiomysql
 import json
 
 # Конфигурация (проверь IP своего брокера)
-MQTT_PARAMS = {"hostname": "192.168.0.166"} 
+# Конфигурация (Том на 0.194 слушает брокера на 0.166)
+MQTT_PARAMS = {
+    "host": "192.168.0.166", # Исправил ключ на 'host'
+    "port": 1883,
+    "topic": "nii/v1/#"
+}
+
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': 'localhost',      # База здесь же, на 0.194
     'user': 'tom',
     'password': 'tom',
     'db': 'nii_hub'
