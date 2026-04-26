@@ -1,0 +1,20 @@
+Шаг 2: Делаем «бессмертную» службу (systemd)
+Чтобы бот работал после перезагрузки Orange Pi и сам восстанавливался после сбоев, создай файл службы:
+sudo nano /etc/systemd/system/weather_bot.service
+
+Вставь туда этот конфиг:
+
+Ini, TOML
+[Unit]
+Description=Weather Bot
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/home/твое_имя/E/22/
+ExecStart=/usr/bin/python3 /home/твое_имя/E/22/weather_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
