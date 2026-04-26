@@ -23,6 +23,14 @@ async def cmd_status(message: types.Message):
     res = await get_weather_analysis()
     
     if res:
+        # Формируем строки динамики (стрелочки)
+        # Мы используем .get(), чтобы бот не выдал ошибку, если ключа нет
+        uv_list = res.get('uv_list', [])
+        kp_list = res.get('kp_list', [])
+        
+        uv_trend = " ➔ ".join(map(str, uv_list)) if uv_list else str(res['uv'])
+        kp_trend = " ➔ ".join(map(str, kp_list)) if kp_list else str(res['kp'])
+
         # 2. Спрашиваем ИИ через ai_engine.py
         ai_opinion = await get_ai_verdict("OK")
 
@@ -31,16 +39,16 @@ async def cmd_status(message: types.Message):
             f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
             f"🌍 Днепр (Meteofor):\n"
             f"🌡 Температура: {res['temp']}°C\n"
-            f"🧲 Kp-индекс: {res['kp']}\n"
-            f"☀️ УФ-индекс: {res['uv']}\n\n"
+            f"🧲 Kp-динамика: {kp_trend}\n"
+            f"☀️ УФ-динамика: {uv_trend}\n\n"
             f"🤖 **АНАЛИЗ ИИ:**\n{ai_opinion}\n\n"
             f"🧐 _Помни: данные из аэропорта, верь своим чувствам!_"
         )
         
-        await message.answer(text)
+        await message.answer(text, parse_mode="Markdown")
     else:
         await message.answer("❌ Meteofor молчит...")
-
+        
 async def main():
     await dp.start_polling(bot)
 
