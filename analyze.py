@@ -64,20 +64,42 @@ async def get_weather_analysis():
         def save_to_db():
             try:
                 conn = mysql.connector.connect(
-                    host='localhost', # Апельсинка пишет сама в себя
+                    host='localhost',
                     user='ai_worker',
                     password=MYSQL_PASSWORD,
                     database='nii_hub',
                     connect_timeout=3
                 )
                 cursor = conn.cursor()
-                query = "INSERT INTO weather_log (temp, uv, kp, created_at) VALUES (%s, %s, %s, NOW())"
-                cursor.execute(query, (res['temp'], res['kp_current'], res['uv_current']))
+                
+                # Исправили имена колонок на те, что реально есть в таблице:
+                # temp, uv_current, kp_current, kp_list, uv_list, max_uv, max_kp
+                query = """
+                    INSERT INTO weather_log 
+                    (temp, uv_current, kp_current, kp_list, uv_list, max_uv, max_kp) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                # Подготавливаем данные (конвертируем списки в текст)
+                values = (
+                    int(res['temp']), 
+                    int(res['uv_current']), 
+                    int(res['kp_current']),
+                    str(res.get('kp_list', [])),
+                    str(res.get('uv_list', [])),
+                    int(res.get('max_uv', 0)),
+                    int(res.get('max_kp', 0))
+                )
+                
+                cursor.execute(query, values)
                 conn.commit()
+                
+                print("✅ Данные успешно сохранены в БД!")
+                
                 cursor.close()
                 conn.close()
             except Exception as db_e:
-                print(f"Ошибка БД на 0.194: {db_e}")
+                print(f"❌ Ошибка БД на 0.194: {db_e}")
 
         # Запускаем фоном
         asyncio.create_task(asyncio.to_thread(save_to_db))
