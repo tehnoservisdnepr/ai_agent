@@ -23,16 +23,25 @@ async def cmd_status(message: types.Message):
     res = await get_weather_analysis()
     
     if res:
-        # Формируем строки динамики (стрелочки)
-        # Мы используем .get(), чтобы бот не выдал ошибку, если ключа нет
+        # Берем списки или текущие значения (защита от пустых данных)
         uv_list = res.get('uv_list', [])
         kp_list = res.get('kp_list', [])
         
-        uv_trend = " ➔ ".join(map(str, uv_list)) if uv_list else str(res['uv'])
-        kp_trend = " ➔ ".join(map(str, kp_list)) if kp_list else str(res['kp'])
+        # Формируем стрелочки
+        uv_trend = " ➔ ".join(map(str, uv_list)) if uv_list else str(res.get('uv_current', 'н/д'))
+        kp_trend = " ➔ ".join(map(str, kp_list)) if kp_list else str(res.get('kp_current', 'н/д'))
 
-        # 2. Спрашиваем ИИ через ai_engine.py
-        ai_opinion = await get_ai_verdict("OK")
+        # 2. Формируем ПОЛНЫЙ контекст для ИИ (чтобы он видел цифры!)
+        ai_context = (
+            f"В Днепре сейчас {res['temp']}°C. "
+            f"Прогноз Kp-индекса: {kp_trend}. "
+            f"Прогноз УФ-индекса: {uv_trend}. "
+            f"Максимальный УФ сегодня: {res.get('max_uv', 0)}. "
+            f"Дай краткий совет по здоровью и электронике."
+        )
+        
+        # Спрашиваем ИИ, передавая ему эти данные
+        ai_opinion = await get_ai_verdict(ai_context)
 
         # 3. Собираем сообщение
         text = (
