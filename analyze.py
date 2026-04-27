@@ -102,7 +102,7 @@ async def get_weather_analysis():
                 print(f"❌ Ошибка БД на 0.194: {db_e}")
 
         # Запускаем фоном
-        asyncio.create_task(asyncio.to_thread(save_to_db))
+        await asyncio.to_thread(save_to_db)
 
         return res
 
