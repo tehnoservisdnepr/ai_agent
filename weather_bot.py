@@ -23,33 +23,37 @@ async def cmd_status(message: types.Message):
     res = await get_weather_analysis()
     
     if res:
-        # Берем списки или текущие значения (защита от пустых данных)
         uv_list = res.get('uv_list', [])
         kp_list = res.get('kp_list', [])
         
-        # Формируем стрелочки
-        uv_trend = " ➔ ".join(map(str, uv_list)) if uv_list else str(res.get('uv_current', 'н/д'))
-        kp_trend = " ➔ ".join(map(str, kp_list)) if kp_list else str(res.get('kp_current', 'н/д'))
+        # Разделитель — три пробела для наглядности
+        uv_trend = "   ".join(map(str, uv_list)) if uv_list else str(res.get('uv_current', 'н/д'))
+        kp_trend = "   ".join(map(str, kp_list)) if kp_list else str(res.get('kp_current', 'н/д'))
 
-        # 2. Формируем ПОЛНЫЙ контекст для ИИ (чтобы он видел цифры!)
+        # 2. Формируем подробный контекст для ИИ
         ai_context = (
-            f"В Днепре сейчас {res['temp']}°C. "
+            f"Погода в Днепре: {res['temp']}°C. "
             f"Прогноз Kp-индекса: {kp_trend}. "
             f"Прогноз УФ-индекса: {uv_trend}. "
-            f"Максимальный УФ сегодня: {res.get('max_uv', 0)}. "
-            f"Дай краткий совет по здоровью и электронике."
+            f"Макс УФ сегодня: {res.get('max_uv', 0)}. "
+            f"Дай краткий совет по здоровью и электронике (инверторы, АКБ)."
         )
         
-        # Спрашиваем ИИ, передавая ему эти данные
-        ai_opinion = await get_ai_verdict(ai_context)
+        raw_ai = await get_ai_verdict(ai_context)
+        
+        # Вытаскиваем только человеческий совет (reason)
+        if isinstance(raw_ai, dict):
+            ai_opinion = raw_ai.get('reason', 'Нет данных')
+        else:
+            ai_opinion = raw_ai
 
-        # 3. Собираем сообщение
+        # 3. Собираем сообщение (используем `для моноширинного текста`)
         text = (
             f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
             f"🌍 Днепр (Meteofor):\n"
             f"🌡 Температура: {res['temp']}°C\n"
-            f"🧲 Kp-динамика: {kp_trend}\n"
-            f"☀️ УФ-динамика: {uv_trend}\n\n"
+            f"🧲 Kp-динамика: `{kp_trend}`\n"
+            f"☀️ УФ-динамика: `{uv_trend}`\n\n"
             f"🤖 **АНАЛИЗ ИИ:**\n{ai_opinion}\n\n"
             f"🧐 _Помни: данные из аэропорта, верь своим чувствам!_"
         )

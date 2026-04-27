@@ -10,7 +10,7 @@ async def get_ai_verdict(title):
     try:
         # Вот здесь мы создаем ЗАПРОС (response) к нейросети
         response = await client.chat.completions.create(
-            model="llama-3.3-70b-specdec",  # Ставим самую актуальную модель
+            model="llama-3.3-70b-versatile",  # Ставим самую актуальную модель  model="llama-3.3-70b-versatile"
             messages=[
                 {
                     "role": "system",
