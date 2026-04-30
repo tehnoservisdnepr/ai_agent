@@ -31,13 +31,15 @@ async def cmd_status(message: types.Message):
         kp_trend = "   ".join(map(str, kp_list)) if kp_list else str(res.get('kp_current', 'н/д'))
 
         # 2. Формируем подробный контекст для ИИ
-        ai_context = (
-            f"Погода в Днепре: {res['temp']}°C. "
-            f"Прогноз Kp-индекса: {kp_trend}. "
-            f"Прогноз УФ-индекса: {uv_trend}. "
-            f"Макс УФ сегодня: {res.get('max_uv', 0)}. "
-            f"Дай краткий совет по здоровью и электронике (инверторы, АКБ)."
-        )
+       ai_context = (
+        f"Погода в Днепре: {res['temp']}°C. "
+        f"ТЕКУЩИЙ Kp-индекс: {res.get('kp_current', 'н/д')}. "  # Добавили текущий Kp
+        f"ТЕКУЩИЙ УФ-индекс: {res.get('uv_current', 'н/д')}. "  # Добавили текущий УФ
+        f"Прогноз Кр-индекса: {kp_trend}. "
+        f"Прогноз Уф-индекса: {uv_trend}. "
+        f"Макс Уф сегодня: {res.get('max_uv', 0)}. "
+        f"Дай краткий совет по здоровью и электронике (инверторы, АКБ)."
+)
         
         raw_ai = await get_ai_verdict(ai_context)
         
