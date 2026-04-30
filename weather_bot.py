@@ -54,6 +54,8 @@ async def cmd_status(message: types.Message):
             f"📊 **ТЕКУЩИЙ СТАТУС:**\n\n"
             f"🌍 Днепр (Meteofor):\n"
             f"🌡 Температура: {res['temp']}°C\n"
+            f"🟢 Текущий Kp: `{res.get('kp_current', 'н/д')}`\n"  # <--- Добавь это
+            f"🛡 Текущий УФ: `{res.get('uv_current', 'н/д')}`\n"  # <--- Добавь это
             f"🧲 Kp-динамика: `{kp_trend}`\n"
             f"☀️ УФ-динамика: `{uv_trend}`\n\n"
             f"🤖 **АНАЛИЗ ИИ:**\n{ai_opinion}\n\n"
