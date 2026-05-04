@@ -67,8 +67,26 @@ async def cmd_status(message: types.Message):
         await message.answer("❌ Meteofor молчит...")
         
 async def main():
-    await dp.start_polling(bot)
+    while True:
+        try:
+            # Запуск бота
+            await dp.start_polling(bot)
+        except Exception as e:
+            # Если пропал интернет или сервер 0.166 недоступен
+            logging.error(f"Критическая ошибка: {e}")
+            logging.info("Перезапуск через 30 секунд...")
+            await asyncio.sleep(30) # Ждем, пока питание или сеть восстановятся
 
 if __name__ == "__main__":
     asyncio.run(main())
 
+async def main():
+    while True:
+        try:
+            # Запуск бота
+            await dp.start_polling(bot)
+        except Exception as e:
+            # Если пропал интернет или сервер 0.166 недоступен
+            logging.error(f"Критическая ошибка: {e}")
+            logging.info("Перезапуск через 30 секунд...")
+            await asyncio.sleep(30) # Ждем, пока питание или сеть восстановятся
